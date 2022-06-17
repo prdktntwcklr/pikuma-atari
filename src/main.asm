@@ -33,12 +33,15 @@ Random             byte                ; random number for enemy position
 ScoreSprite        byte                ; store the sprite bit pattern for the score
 TimerSprite        byte                ; store the sprite bit pattern for the timer
 
+TerrainColor       byte                ; store the color of the terrain
+RiverColor         byte                ; store the color of the river
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; define constants
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-JET_HEIGHT    = 9                       ; player0 sprite height (number of rows in lookup table)
-BOMBER_HEIGHT = 9                       ; player1 sprite height (number of rows in lookup table)
-DIGITS_HEIGHT = 5                       ; scoreboard digit height (#rows in lookup table)
+JET_HEIGHT    = 9                      ; player0 sprite height (number of rows in lookup table)
+BOMBER_HEIGHT = 9                      ; player1 sprite height (number of rows in lookup table)
+DIGITS_HEIGHT = 5                      ; scoreboard digit height (#rows in lookup table)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; start ROM code from memory address $F000
@@ -54,22 +57,18 @@ Reset:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #65
     sta JetXPos                        ; JetXPos = 65
-
     lda #10
     sta JetYPos                        ; JetYPos = 10
-
     lda #54
     sta BomberXPos                     ; BomberXPos = 54
-
     lda #96
     sta BomberYPos                     ; BomberYPos = 96
-
     lda #%11010100
     sta Random                         ; Random = D4
-
-    lda #0
-    lda Store
-    sta Timer                          ; Score = Timer = 0
+    lda #4
+    sta Score                          ; Score = 4
+    lda #8
+    sta Timer                          ; Timer = 8
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; initialize pointers to correct lookup table addresses
@@ -80,14 +79,14 @@ Reset:
     sta JetSpritePtr+1                 ; hi-byte pointer for jet sprite lookup table
 
     lda #<JetColor
-    sta JetColorPtr                   ; lo-byte pointer for jet color lookup table
+    sta JetColorPtr                    ; lo-byte pointer for jet color lookup table
     lda #>JetColor
-    sta JetColorPtr+1                 ; hi-byte pointer for jet color lookup table   
+    sta JetColorPtr+1                  ; hi-byte pointer for jet color lookup table   
 
     lda #<BomberSprite
-    sta BomberSpritePtr               ; lo-byte pointer for bomber sprite lookup table
+    sta BomberSpritePtr                ; lo-byte pointer for bomber sprite lookup table
     lda #>BomberSprite
-    sta BomberSpritePtr+1             ; hi-byte pointer for bomber sprite lookup table
+    sta BomberSpritePtr+1              ; hi-byte pointer for bomber sprite lookup table
 
     lda #<BomberColor
     sta BomberColorPtr                 ; lo-byte pointer for bomber color lookup table
@@ -100,7 +99,22 @@ Reset:
 StartFrame:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; calculations and tasks performed in the pre-VBlank
+; display VSYNC and VBLANK
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    lda #2
+    sta VSYNC                          ; turn on VSYNC
+    sta VBLANK                         ; turn on VBLANK
+    REPEAT 3
+        sta WSYNC                      ; display 3 recommended lines of VSYNC
+    REPEND
+    lda #0
+    sta VSYNC                          ; turn off VSYNC
+    REPEAT 33                          ; render fewer VBLANK lines because some are used below 
+        sta WSYNC                      ; display the recommended lines of VBLANK
+    REPEND
+    
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; calculations and tasks performed in the VBlank
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda JetXPos
     ldy #0
@@ -113,22 +127,9 @@ StartFrame:
     jsr CalculateDigitOffset           ; calculate scoreboard digit lookup table offset
 
     sta WSYNC
-    sta HMOVE                          ; apply the horizontal offsets previously set
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; display VSYNC and VBLANK
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    lda #2
-    sta VSYNC                          ; turn on VSYNC
-    sta VBLANK                         ; turn on VBLANK
-    REPEAT 3
-        sta WSYNC                      ; display 3 recommended lines of VSYNC
-    REPEND
+    sta HMOVE                          ; apply the horizontal offsets previously set   
+    
     lda #0
-    sta VSYNC                          ; turn off VSYNC
-    REPEAT 37
-        sta WSYNC                      ; display 37 recommended lines of VBLANK
-    REPEND
     sta VBLANK                         ; turn off VBLANK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -140,46 +141,71 @@ StartFrame:
     sta PF2
     sta GRP0
     sta GRP1
-    sta #$1C
-    sta COLUPF                         ; set scoreboard color to white
-    lda #0
     sta CTRLPF                         ; disable playfield reflection
+    sta COLUBK                         ; set color background to zero
+    
+    lda #$1E
+    sta COLUPF                         ; set scoreboard color to yellow
 
     ldx #DIGITS_HEIGHT                 ; start X counter with 5 (height of digits)
 .ScoreDigitLoop:
     ldy TensDigitOffset                ; get the tens digit offset for the score
     lda Digits,Y                       ; load the bit pattern from the lookup table
-    and #F0                            ; mask the graphics for the ones digit
+    and #$F0                           ; mask the graphics for the ones digit
     sta ScoreSprite                    ; save the score tens digit pattern in a variable
     ldy OnesDigitOffset                ; get the ones digit offset for the score
     lda Digits,Y                       ; load the bit pattern from the lookup table
-    and #0F                            ; mask the graphics for the ones digit
+    and #$0F                           ; mask the graphics for the ones digit
     ora ScoreSprite                    ; merge it with the saved tens digit graphic
-    lda ScoreSprite                    ; and save it
+    sta ScoreSprite                    ; and save it
     sta WSYNC                          ; wait for the end of scanline
     sta PF1                            ; update the playfield to display the score sprite
 
     ldy TensDigitOffset+1              ; get the tens digit offset for the timer
     lda Digits,Y                       ; load the bit pattern from the lookup table
-    and #F0                            ; mask the graphics for the ones digit
+    and #$F0                           ; mask the graphics for the ones digit
     sta TimerSprite                    ; save the timer tens digit pattern in a variable
     ldy OnesDigitOffset+1              ; get the ones digit offset for the timer  
     lda Digits,Y                       ; load the bit pattern from the lookup table    
-    and #0F                            ; mask the graphics for the ones digit    
+    and #$0F                           ; mask the graphics for the ones digit    
     ora TimerSprite                    ; merge it with the saved tens digit graphic 
-    lda TimerSprite                    ; and save it
+    sta TimerSprite                    ; and save it
+
+    jsr Sleep12Cycles                  ; waste 12 cycles of CPU
+
+    sta PF1                            ; update the playfield for timer display
+
+    ldy ScoreSprite                    ; preload for the next scanline
+    sta WSYNC                          ; wait for the next scaline
+
+    sty PF1                            ; update playfield for the score display
+    inc TensDigitOffset
+    inc TensDigitOffset+1
+    inc OnesDigitOffset
+    inc OnesDigitOffset+1
+
+    jsr Sleep12Cycles                  ; waste some cycles
     
     dex                                ; X--
-    bne .ScoreDigitLoop                ; if X != 0, then branch to ScoreDigitLoop  
+    sta PF1                            ; update the playfield for the Timer display
+    bne .ScoreDigitLoop                ; if X != 0, then branch to ScoreDigitLoop
+
+    lda #0
+    sta PF0
+    sta PF1
+    sta PF2
+    sta WSYNC
+    sta WSYNC
+    sta WSYNC
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; display the 84 visible scanlines of our main game (2-line kernel)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 GameVisibleLine:
-    lda #$84
+    lda RiverColor
     sta COLUBK                         ; set color background to blue
 
-    lda #$C2
+    lda TerrainColor
     sta COLUPF                         ; set playfield grass color to green
 
     lda #$01
@@ -194,7 +220,7 @@ GameVisibleLine:
     lda #0
     sta PF2                            ; set PF2 bit pattern
 
-    ldx #84                            ; X counts number of remaining scanlines
+    ldx #85                            ; X counts number of remaining scanlines
 .GameLineLoop:
 .AreWeInsideJetSprite:
     txa                                ; transfer X to A
@@ -310,16 +336,11 @@ UpdateBomberPosition:
 CheckCollisionP0P1:
     lda #%10000000                     ; CXPPMM bit 7 detect P0P1 collision
     bit CXPPMM                         ; check if bit is set
-    bne .CollisionP0P1                 ; collision detected
+    bne .P0P1Collided                  ; collision detected
+    jsr SetTerrainRiverColor           ; else, set playfield color to green and blue
+    jmp EndCollisionCheck
 
-CheckCollisionP0PF:
-    lda #%10000000                     ; CXP0FB bit 7 detect P0PF collision
-    bit CXP0FB                         ; check if bit is set
-    bne .CollisionP0PF                 ; collision detected
-    jmp EndCollisionCheck              ; skip to the bottom
-
-.CollisionP0P1
-.CollisionP0PF
+.P0P1Collided
     jsr GameOver                       ; call GameOver subroutine
 
 EndCollisionCheck:                     ; fallback
@@ -328,6 +349,17 @@ EndCollisionCheck:                     ; fallback
 ; loop back to start a new frame
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     jmp StartFrame                     ; continue to display next frame
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; subroutine to set the colors for the terrain and river to green and blue
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SetTerrainRiverColor subroutine
+    lda #$C2
+    sta TerrainColor                   ; set color to green
+    lda #$84
+    sta RiverColor                     ; set color to blue
+    lda #$
+    rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; subroutine to handle object horizontal position with fine offset
@@ -356,7 +388,10 @@ SetObjectXPos subroutine
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 GameOver subroutine
     lda #$30
-    sta COLUBK                         ; set background to red
+    sta TerrainColor                   ; set TerrainColor to red
+    sta RiverColor                     ; set RiverColor to red
+    lda #0
+    sta Score                          ; Score = 0
     rts                                ; return from subroutine
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -421,11 +456,20 @@ CalculateDigitOffset subroutine
     sta Temp                           ; save the value of A into Temp
     lsr                                ; shift right (it is now N/8)
     lsr                                ; shift right (it is now N/16)
-    adc Tenp                           ; add the value saved in Temp (+N/4)
+    adc Temp                           ; add the value saved in Temp (+N/4)
     sta TensDigitOffset,X              ; store Timer (X = 1) and Score (X = 0) offset             
 
     dex                                ; X--
     bpl .PrepareScoreLoop              ; while X >= 0 loop to pass a second time
+    rts
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; subroutine to waste 12 cycles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; jsr takes 6 cycles
+; rts takes 6 cycles
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Sleep12Cycles subroutine
     rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
