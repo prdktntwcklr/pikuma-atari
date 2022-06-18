@@ -48,8 +48,8 @@ DIGITS_HEIGHT = 5                      ; scoreboard digit height (#rows in looku
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; start ROM code from memory address $F000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    seg Code
-    org $F000
+    seg Code                           ; define a new segment start
+    org $F000                          ; set origin to default position of $F000
 
 Reset:
     CLEAN_START                        ; macro to reset memory and registers
@@ -159,7 +159,6 @@ StartFrame:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #0                             ; clear TIA registers before each new frame
     sta COLUBK                         ; set color background to zero
-
     sta PF0
     sta PF1
     sta PF2
@@ -213,7 +212,7 @@ StartFrame:
     sta PF1                            ; update the playfield for the Timer display
     bne .ScoreDigitLoop                ; if X != 0, then branch to ScoreDigitLoop
 
-    lda #0
+    lda #0                             ; add padding to scoreboard
     sta PF0
     sta PF1
     sta PF2
@@ -442,7 +441,7 @@ GenerateJetSound subroutine
     sta Temp                           ; store JetYPos/8 in Temp
     lda #31                            ; set minimum frequency
     clc
-    sbc Temp
+    sbc Temp                           ; substract JetYPos/8 from Temp
     sta AUDF0                          ; set channel 0 frequency
 
     lda #8
@@ -469,7 +468,7 @@ SetTerrainRiverColor subroutine
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
 SetObjectXPos subroutine
     sta WSYNC                          ; start fresh new scanline
-    sec                                ; make sure carry-flag is set before subtracion
+    sec                                ; set carry flag before subtracion
 .Div15Loop
     sbc #15                            ; subtract 15 from accumulator
     bcs .Div15Loop                     ; loop until carry-flag is clear
@@ -493,11 +492,11 @@ GameOver subroutine
     sta Score                          ; Score = 0
 .GenerateGameOverSound
     lda #3
-    sta AUDV1
-    lda #25
-    sta AUDC1
+    sta AUDV1                          ; set channel 1 volume
     lda #2
-    sta AUDF1
+    sta AUDF1                          ; set channel 1 frequency
+	lda #9
+    sta AUDC1                          ; set channel 1 tone type
     rts                                ; return from subroutine
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
