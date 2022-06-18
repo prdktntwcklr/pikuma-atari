@@ -342,8 +342,18 @@ UpdateBomberPosition:
     jmp EndBomberPositionUpdate
 .ResetBomberPosition:
     jsr GetRandomBomberPosition        ; call subroutine for random x-position
-    inc Score                          ; Score++
-    inc Timer                          ; Timer++
+
+.SetScoreValues:
+    sed                                ; enable decimal mode for score and timer values
+    lda Score                          ; Score += 1, inc does not work in BCD
+    clc
+    adc #1
+    sta Score
+    lda Timer                          ; Timer += 1, inc does not work in BCD
+    clc
+    adc #1
+    sta Timer
+    cld                                ; disable decimal mode
 
 EndBomberPositionUpdate:
 
