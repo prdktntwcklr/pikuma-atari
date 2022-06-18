@@ -748,5 +748,5 @@ BomberColor:
 ; fill ROM to 4kB
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     org $FFFC
-    word Reset                          ; program reset address
-    word Reset                          ; interrupt vector (unused)
+    word Reset                         ; program reset address
+    word Reset                         ; interrupt vector (unused)
