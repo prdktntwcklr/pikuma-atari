@@ -125,7 +125,7 @@ StartFrame:
     REPEND
     lda #0
     sta VSYNC                          ; turn off VSYNC
-    REPEAT 33                          ; render fewer VBLANK lines because some are used below 
+    REPEAT 31                          ; render fewer VBLANK lines because some are used below 
         sta WSYNC                      ; display the recommended lines of VBLANK
     REPEND
     
@@ -145,6 +145,8 @@ StartFrame:
     jsr SetObjectXPos                  ; set missile horizontal position
 
     jsr CalculateDigitOffset           ; calculate scoreboard digit lookup table offset
+
+    jsr GenerateJetSound               ; configure and enable our jet engine audio
 
     sta WSYNC
     sta HMOVE                          ; apply the horizontal offsets previously set   
@@ -237,7 +239,7 @@ GameVisibleLine:
     lda #0
     sta PF2                            ; set PF2 bit pattern
 
-    ldx #85                            ; X counts number of remaining scanlines
+    ldx #89                            ; X counts number of remaining scanlines
 
 .GameLineLoop:
     DRAW_MISSILE                       ; macro to check if we should draw the missile
@@ -393,6 +395,8 @@ EndBomberPositionUpdate:
 ; perform collision checks
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CheckCollision:
+    lda #0
+    sta AUDV1                          ; set audio channel 1 volume to 0
 .CheckCollisionP0P1:
     lda #%10000000                     ; CXPPMM bit 7 detects P0P1 collision
     bit CXPPMM                         ; check if bit is set
@@ -425,6 +429,27 @@ EndCollisionCheck:                     ; fallback
     jmp StartFrame                     ; continue to display next frame
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; generate audio for the jet engine sound based on the jet y-pos
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+GenerateJetSound subroutine
+    lda #3
+    sta AUDV0                          ; set channel 0 volume
+
+    lda JetYPos                        ; divide JetYPos by 8
+    lsr
+    lsr
+    lsr
+    sta Temp                           ; store JetYPos/8 in Temp
+    lda #31                            ; set minimum frequency
+    clc
+    sbc Temp
+    sta AUDF0                          ; set channel 0 frequency
+
+    lda #8
+    sta AUDC0                          ; set channel 0 tone type
+    rts                                ; return from subroutine
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; subroutine to set the colors for the terrain and river to green and blue
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SetTerrainRiverColor subroutine
@@ -433,7 +458,7 @@ SetTerrainRiverColor subroutine
     lda #$84
     sta RiverColor                     ; set color to blue
     lda #$
-    rts
+    rts                                ; return from subroutine
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; subroutine to handle object horizontal position with fine offset
@@ -466,6 +491,13 @@ GameOver subroutine
     sta RiverColor                     ; set RiverColor to red
     lda #0
     sta Score                          ; Score = 0
+.GenerateGameOverSound
+    lda #3
+    sta AUDV1
+    lda #25
+    sta AUDC1
+    lda #2
+    sta AUDF1
     rts                                ; return from subroutine
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -535,7 +567,7 @@ CalculateDigitOffset subroutine
 
     dex                                ; X--
     bpl .PrepareScoreLoop              ; while X >= 0 loop to pass a second time
-    rts
+    rts                                ; return from subroutine
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; subroutine to waste 12 cycles
