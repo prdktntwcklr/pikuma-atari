@@ -64,7 +64,7 @@ Reset:
     lda #96
     sta BomberYPos                     ; BomberYPos = 96
     lda #%11010100
-    sta Random                         ; Random = D4
+    sta Random                         ; Random = $D4
     lda #4
     sta Score                          ; Score = 4
     lda #8
@@ -136,14 +136,16 @@ StartFrame:
 ; display the scoreboard lines
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #0                             ; clear TIA registers before each new frame
+    sta COLUBK                         ; set color background to zero
+
+
     sta PF0
     sta PF1
     sta PF2
     sta GRP0
     sta GRP1
     sta CTRLPF                         ; disable playfield reflection
-    sta COLUBK                         ; set color background to zero
-    
+
     lda #$1E
     sta COLUPF                         ; set scoreboard color to yellow
 
@@ -210,13 +212,14 @@ GameVisibleLine:
 
     lda #$01
     sta CTRLPF                         ; enable playfield reflection
+
     
     lda #$F0
     sta PF0                            ; set PF0 bit pattern
-    
+
     lda #$FC
     sta PF1                            ; set PF1 bit pattern
-    
+
     lda #0
     sta PF2                            ; set PF2 bit pattern
 
@@ -263,6 +266,8 @@ GameVisibleLine:
 
     lda #0
     sta JetAnimOffset                  ; reset jet animation frame
+
+    sta WSYNC                          ; wait for a scanline
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; display overscan
@@ -320,15 +325,15 @@ EndInputCheck:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 UpdateBomberPosition:
     lda BomberYPos
-    clc                                 ; clear carry before compare
-    cmp #0                              ; compare bomber y-position with 0
-    bmi .ResetBomberPosition            ; if negative, reset bomber y-position back up    
-    dec BomberYPos                      ; else, decrement bomber y-position for next frame
-    jmp .EndBomberPositionUpdate
+    clc                                ; clear carry before compare
+    cmp #0                             ; compare bomber y-position with 0
+    bmi .ResetBomberPosition           ; if negative, reset bomber y-position back up    
+    dec BomberYPos                     ; else, decrement bomber y-position for next frame
+    jmp EndBomberPositionUpdate
 .ResetBomberPosition:
-    jsr GetRandomBomberPosition         ; call subroutine for random x-position
+    jsr GetRandomBomberPosition        ; call subroutine for random x-position
 
-.EndBomberPositionUpdate:
+EndBomberPositionUpdate:
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; perform collision checks
