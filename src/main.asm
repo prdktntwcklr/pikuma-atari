@@ -246,7 +246,7 @@ GameVisibleLine:
     txa                                ; transfer X to A
     sec                                ; set carry before subtraction
     sbc JetYPos                        ; subtract sprite Y-coordinate
-    cmp JET_HEIGHT                     ; are we between Y-position and sprite height
+    cmp #JET_HEIGHT                    ; are we between Y-position and sprite height
     bcc .DrawSpriteP0                  ; if result < SpriteHeight, call the draw routine
     lda #0                             ; else, set lookup index to zero
 
@@ -264,7 +264,7 @@ GameVisibleLine:
     txa                                ; transfer X to A
     sec                                ; set carry before subtraction
     sbc BomberYPos                     ; subtract sprite Y-coordinate
-    cmp BOMBER_HEIGHT                  ; are we between Y-position and sprite height
+    cmp #BOMBER_HEIGHT                 ; are we between Y-position and sprite height
     bcc .DrawSpriteP1                  ; if result < SpriteHeight, call the draw routine
     lda #0                             ; else, set lookup index to zero
 
@@ -309,7 +309,7 @@ CheckP0Left:
     cmp #35                            ; if JetXPos < 35
     bmi CheckButtonPress               ; then, skip increment
     dec JetXPos
-    lda JET_HEIGHT                     ; 9
+    lda #JET_HEIGHT                    ; #9
     sta JetAnimOffset                  ; set animation offset to the second frame
     jmp CheckButtonPress               ; prevent diagonal movement
 
@@ -322,7 +322,7 @@ CheckP0Right:
     cmp #100                           ; if JetXPos > 100
     bpl CheckButtonPress               ; then, skip increment    
     inc JetXPos
-    lda JET_HEIGHT                     ; 9
+    lda #JET_HEIGHT                    ; #9
     sta JetAnimOffset                  ; set animation offset to the second frame
     jmp CheckButtonPress               ; prevent diagonal movement
 
