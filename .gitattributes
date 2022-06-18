@@ -1,0 +1,2 @@
+# Reclassify '.h' files as Assembly:
+*.h linguist-language=Assembly
