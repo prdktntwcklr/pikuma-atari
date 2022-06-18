@@ -65,10 +65,9 @@ Reset:
     sta BomberYPos                     ; BomberYPos = 96
     lda #%11010100
     sta Random                         ; Random = $D4
-    lda #4
-    sta Score                          ; Score = 4
-    lda #8
-    sta Timer                          ; Timer = 8
+    lda #0
+    sta Score                          ; Score = 0
+    sta Timer                          ; Timer = 0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; initialize pointers to correct lookup table addresses
@@ -287,6 +286,9 @@ CheckP0Left:
     lda #%01000000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Right                   ; if bit pattern does not match
+    lda JetXPos
+    cmp #35                            ; if JetXPos < 35
+    bmi EndInputCheck                  ; then, skip increment
     dec JetXPos
     lda JET_HEIGHT                     ; 9
     sta JetAnimOffset                  ; set animation offset to the second frame
@@ -296,6 +298,9 @@ CheckP0Right:
     lda #%10000000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Up                      ; if bit pattern does not match
+    lda JetXPos
+    cmp #100                           ; if JetXPos > 100
+    bpl EndInputCheck                  ; then, skip increment    
     inc JetXPos
     lda JET_HEIGHT                     ; 9
     sta JetAnimOffset                  ; set animation offset to the second frame
@@ -305,15 +310,20 @@ CheckP0Up:
     lda #%00010000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Down                    ; if bit pattern does not match
+    lda JetYPos
+    cmp #70                            ; if JetYPos > 70
+    bpl EndInputCheck                  ; then, skip increment
     inc JetYPos
     lda #0
     sta JetAnimOffset                  ; reset animation offset to the first frame
-    jmp EndInputCheck                  ; prevent diagonal movement
 
 CheckP0Down:
     lda #%00100000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne EndInputCheck                  ; if bit pattern does not match
+    lda JetYPos
+    cmp #5                             ; if JetYPos < 5
+    bmi EndInputCheck                  ; then, skip increment
     dec JetYPos
     lda #0
     sta JetAnimOffset                  ; reset animation offset to the first frame
@@ -332,6 +342,8 @@ UpdateBomberPosition:
     jmp EndBomberPositionUpdate
 .ResetBomberPosition:
     jsr GetRandomBomberPosition        ; call subroutine for random x-position
+    inc Score                          ; Score++
+    inc Timer                          ; Timer++
 
 EndBomberPositionUpdate:
 
