@@ -16,6 +16,8 @@ JetXPos            byte                ; player0 x-position
 JetYPos            byte                ; player0 y-position
 BomberXPos         byte                ; player1 x-position
 BomberYPos         byte                ; player1 y-position
+MissileXPos        byte                ; missile x-position
+MissileYPos        byte                ; missile y-position
 Score              byte                ; keeps track of score
 Timer              byte                ; keeps track of time (must be right after score)
 Temp               byte                ; helper variable to store temporary score values
@@ -68,6 +70,21 @@ Reset:
     lda #0
     sta Score                          ; Score = 0
     sta Timer                          ; Timer = 0
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; declare a macro to check if we should display the missile
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;    
+    MAC DRAW_MISSILE
+        ; x has the number of scanline that we are at
+        lda #$%00000000
+        cpx MissileYPos                ; compare X (current scanline) with missile y-pos                
+        bne .SkipMissileDraw           ; if (X != missile y-pos), do not draw missile
+.DrawMissile:
+        lda #%00000010                 ; enable missile0 display
+        inc MissileYPos                ; MissileYPos++
+.SkipMissileDraw:
+        sta ENAM0                      ; store the correct value in the TIA missile register
+    ENDM
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; initialize pointers to correct lookup table addresses
@@ -123,6 +140,10 @@ StartFrame:
     ldy #1
     jsr SetObjectXPos                  ; set player1 horizontal position
 
+    lda MissileXPos
+    ldy #2
+    jsr SetObjectXPos                  ; set missile horizontal position
+
     jsr CalculateDigitOffset           ; calculate scoreboard digit lookup table offset
 
     sta WSYNC
@@ -136,7 +157,6 @@ StartFrame:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     lda #0                             ; clear TIA registers before each new frame
     sta COLUBK                         ; set color background to zero
-
 
     sta PF0
     sta PF1
@@ -205,25 +225,23 @@ StartFrame:
 GameVisibleLine:
     lda RiverColor
     sta COLUBK                         ; set color background to blue
-
     lda TerrainColor
     sta COLUPF                         ; set playfield grass color to green
-
     lda #$01
     sta CTRLPF                         ; enable playfield reflection
 
-    
     lda #$F0
     sta PF0                            ; set PF0 bit pattern
-
     lda #$FC
     sta PF1                            ; set PF1 bit pattern
-
     lda #0
     sta PF2                            ; set PF2 bit pattern
 
     ldx #85                            ; X counts number of remaining scanlines
+
 .GameLineLoop:
+    DRAW_MISSILE                       ; macro to check if we should draw the missile
+
 .AreWeInsideJetSprite:
     txa                                ; transfer X to A
     sec                                ; set carry before subtraction
@@ -286,33 +304,36 @@ CheckP0Left:
     lda #%01000000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Right                   ; if bit pattern does not match
+.P0LeftPressed:
     lda JetXPos
     cmp #35                            ; if JetXPos < 35
-    bmi EndInputCheck                  ; then, skip increment
+    bmi CheckButtonPress               ; then, skip increment
     dec JetXPos
     lda JET_HEIGHT                     ; 9
     sta JetAnimOffset                  ; set animation offset to the second frame
-    jmp EndInputCheck                  ; prevent diagonal movement
+    jmp CheckButtonPress               ; prevent diagonal movement
 
 CheckP0Right:
     lda #%10000000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Up                      ; if bit pattern does not match
+.P0RightPressed:
     lda JetXPos
     cmp #100                           ; if JetXPos > 100
-    bpl EndInputCheck                  ; then, skip increment    
+    bpl CheckButtonPress               ; then, skip increment    
     inc JetXPos
     lda JET_HEIGHT                     ; 9
     sta JetAnimOffset                  ; set animation offset to the second frame
-    jmp EndInputCheck                  ; prevent diagonal movement
+    jmp CheckButtonPress               ; prevent diagonal movement
 
 CheckP0Up:
     lda #%00010000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
     bne CheckP0Down                    ; if bit pattern does not match
+.P0UpPressed:
     lda JetYPos
     cmp #70                            ; if JetYPos > 70
-    bpl EndInputCheck                  ; then, skip increment
+    bpl CheckButtonPress               ; then, skip increment
     inc JetYPos
     lda #0
     sta JetAnimOffset                  ; reset animation offset to the first frame
@@ -320,13 +341,28 @@ CheckP0Up:
 CheckP0Down:
     lda #%00100000                     ; pattern for player0 joystick CheckP0Up
     bit SWCHA
-    bne EndInputCheck                  ; if bit pattern does not match
+    bne CheckButtonPress               ; if bit pattern does not match
+.P0DownPressed:
     lda JetYPos
     cmp #5                             ; if JetYPos < 5
-    bmi EndInputCheck                  ; then, skip increment
+    bmi CheckButtonPress               ; then, skip increment
     dec JetYPos
     lda #0
     sta JetAnimOffset                  ; reset animation offset to the first frame
+
+CheckButtonPress:
+    lda #%10000000                     ; pattern for button press
+    bit INPT4
+    bne EndInputCheck                  ; if bit pattern does not match
+.ButtonPressed:
+    lda JetXPos
+    clc
+    adc #5
+    sta MissileXPos                    ; set missile x-position to player x-position + 5
+    lda JetYPos
+    clc
+    adc #8
+    sta MissileYPos                    ; set missile y-position to player y-position + 8
 
 EndInputCheck:
 
@@ -343,12 +379,8 @@ UpdateBomberPosition:
 .ResetBomberPosition:
     jsr GetRandomBomberPosition        ; call subroutine for random x-position
 
-.SetScoreValues:
-    sed                                ; enable decimal mode for score and timer values
-    lda Score                          ; Score += 1, inc does not work in BCD
-    clc
-    adc #1
-    sta Score
+.IncrementTimer:
+    sed                                ; enable decimal mode for timer value
     lda Timer                          ; Timer += 1, inc does not work in BCD
     clc
     adc #1
@@ -360,15 +392,30 @@ EndBomberPositionUpdate:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; perform collision checks
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CheckCollisionP0P1:
-    lda #%10000000                     ; CXPPMM bit 7 detect P0P1 collision
+CheckCollision:
+.CheckCollisionP0P1:
+    lda #%10000000                     ; CXPPMM bit 7 detects P0P1 collision
     bit CXPPMM                         ; check if bit is set
     bne .P0P1Collided                  ; collision detected
     jsr SetTerrainRiverColor           ; else, set playfield color to green and blue
-    jmp EndCollisionCheck
-
+    jmp .CheckCollisionM0P1            ; check next possible collision
 .P0P1Collided
     jsr GameOver                       ; call GameOver subroutine
+
+.CheckCollisionM0P1:
+    lda #%10000000                     ; CXM0P bit 7 detects M0P1 collision
+    bit CXM0P                          ; check if bit is set
+    bne .M0P1Collided                  ; collision detected
+    jmp EndCollisionCheck              ; else, end collision check
+.M0P1Collided:
+    sed                                ; increment score in BCD mode
+    lda Score
+    clc
+    adc #1
+    sta Score
+    cld
+    lda #0                             ; reset missile position to make it invisible
+    sta MissileYPos
 
 EndCollisionCheck:                     ; fallback
     sta CXCLR                          ; clear all collision flags before next frame
