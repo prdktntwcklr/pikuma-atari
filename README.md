@@ -1,7 +1,8 @@
 # Atari 2600 Game
 
 A game for the Atari 2600. Based on Pikuma's *Atari 2600 Programming with
-6502 Assembly* course.
+6502 Assembly* course. Run ```make``` from the top-level directory to build the
+project.
 
 ## Toolchain
 
