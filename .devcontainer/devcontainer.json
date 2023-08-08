@@ -1,0 +1,12 @@
+{
+    "name": "Atari Game",
+    "dockerFile": "../Dockerfile",
+    "runArgs": [
+        "--security-opt",
+        "label=disable"
+    ],
+    "containerEnv": {
+        "WORKSPACE_DIR": "${containerWorkspaceFolder}",
+        "PROMPT_COMMAND": "history -a"
+    }
+}
